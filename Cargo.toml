@@ -1,0 +1,47 @@
+[package]
+name = "nes"
+version = "0.1.0"
+authors = ["Jaden Buchan <me@jaden.bio>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1.6"
+
+[dependencies.web-sys]
+version = "0.3.32"
+features = [
+	'CssStyleDeclaration',
+	'Document',
+	'Element',
+	'Event',
+	'EventTarget',
+	'HtmlCanvasElement',
+	'HtmlElement',
+	'HtmlImageElement',
+	'HtmlInputElement',
+	'InputEvent',
+	'MouseEvent',
+	'Node',
+	'Touch',
+	'TouchEvent',
+	'TouchList',
+	'WebGlBuffer',
+	'WebGlFramebuffer',
+	'WebGlProgram',
+	'WebGlRenderbuffer',
+	'WebGlRenderingContext',
+	'WebGlShader',
+	'WebGlTexture',
+	'WebGlUniformLocation',
+	'WebGlVertexArrayObject',
+	'WebGlActiveInfo',
+	'WheelEvent',
+	'Window',
+	'console',
+	'OesVertexArrayObject',
+]
