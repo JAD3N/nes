@@ -60,11 +60,11 @@ impl Nes {
         // TODO: Apu tick
     }
 
-    pub fn write(&mut self, addr: u16, value: u8) {
+    pub fn write(&mut self, addr: usize, value: u8) {
         self.bus.write(addr, value);
     }
 
-    pub fn read(&mut self, addr: u16) -> u8 {
+    pub fn read(&mut self, addr: usize) -> u8 {
         self.bus.read(addr)
     }
 }

@@ -19,6 +19,21 @@ pub struct Cpu {
     debug: String,
 }
 
+pub enum Mode {
+    Implied,
+    Immediate,
+    ZeroPage,
+    ZeroPageX,
+    ZeroPageY,
+    Relative,
+    Absolute,
+    AbsoluteX,
+    AbsoluteY,
+    Indirect,
+    IndirectX,
+    IndirectY,
+}
+
 impl Cpu {
     pub fn new(bus: Rc<RefCell<BusInterface>>) -> Cpu {
         Cpu {
@@ -44,18 +59,116 @@ impl Cpu {
         console::log_1(&format!("PC: {}", self.pc.load()).into());
     }
 
-    pub fn next_byte(&mut self) -> u8 {
+    fn next_byte(&mut self) -> u8 {
         let pc = self.pc.load();
 
         self.pc.add(1);
-        self.bus.borrow().read(pc)
+        self.bus.borrow().read(pc as usize)
     }
 
-    pub fn next_word(&mut self) -> u16 {
+    fn next_word(&mut self) -> u16 {
         let pc = self.pc.load();
 
         self.pc.add(2);
-        self.bus.borrow().read_word(pc)
+        self.bus.borrow().read_word(pc as usize)
+    }
+
+    fn get_address(&mut self, mode: Mode) -> usize {
+        match mode {
+            Mode::Immediate => {
+                let addr = self.pc.load() as usize;
+                self.pc.add(1);
+                addr
+            },
+            Mode::ZeroPage => {
+                let mut addr = self.next_byte() as u16;
+                addr &= 0x00ff;
+                addr as usize
+            },
+            Mode::ZeroPageX => {
+                let mut addr = self.next_byte() as u16;
+                addr = addr.wrapping_add(self.x.load() as u16);
+                addr &= 0x00ff;
+                addr as usize
+            },
+            Mode::ZeroPageY => {
+                let mut addr = self.next_byte() as u16;
+                addr = addr.wrapping_add(self.y.load() as u16);
+                addr &= 0x00ff;
+                addr as usize
+            },
+            Mode::Relative => {
+                let mut addr = self.next_byte() as u16;
+                if addr & 0x80 != 0 {
+                    addr |= 0xff00;
+                }
+                addr as usize
+            },
+            Mode::Absolute => self.next_word() as usize,
+            Mode::AbsoluteX => {
+                let lo = self.next_byte() as u16;
+                let hi = self.next_byte() as u16;
+
+                let mut addr = (hi << 8) | lo;
+                addr += self.x.load() as u16;
+
+                // TODO: Page change check
+
+                addr as usize
+            },
+            Mode::AbsoluteY => {
+                let lo = self.next_byte() as u16;
+                let hi = self.next_byte() as u16;
+
+                let mut addr = (hi << 8) | lo;
+                addr += self.y.load() as u16;
+
+                // TODO: Page change check
+
+                addr as usize
+            },
+            Mode::Indirect => {
+                let ptr_lo = self.next_byte() as u16;
+                let ptr_hi = self.next_byte() as u16;
+                let ptr = (ptr_hi << 8) | ptr_lo;
+
+                let bus = self.bus.borrow();
+                let lo;
+                let hi;
+
+                // simulate page boundary hardware bug
+                if ptr_lo == 0x00FF {
+                    lo = bus.read((ptr + 0) as usize) as u16;
+                    hi = bus.read((ptr & 0xff00) as usize) as u16;
+                } else {
+                    lo = bus.read((ptr + 0) as usize) as u16;
+                    hi = bus.read((ptr + 1) as usize) as u16;
+                }
+
+                ((hi << 8) | lo) as usize
+            },
+            Mode::IndirectX => {
+                let addr = self.next_byte() as u16;
+                let bus = self.bus.borrow();
+
+                let lo = bus.read(((addr + (self.x.load() as u16) + 0) & 0x00FF) as usize);
+                let hi = bus.read(((addr + (self.x.load() as u16) + 1) & 0x00FF) as usize);
+
+                ((hi << 8) | lo) as usize
+            },
+            Mode::IndirectY => {
+                let addr = self.next_byte() as u16;
+                let bus = self.bus.borrow();
+
+                let lo = bus.read(((addr + 0) & 0x00ff) as usize);
+                let hi = bus.read(((addr + 1) & 0x00ff) as usize);
+
+                // TODO: Page change check
+
+                ((hi << 8) | lo) as usize
+            }
+            _ => panic!("Invalid address mode"),
+        }
     }
 
     fn execute(&mut self, opcode: u8) {
@@ -66,7 +179,7 @@ impl Cpu {
                 self.pc.store(addr);
                 self.skip_ticks += 4;
             },
-            _ => panic!("invalid opcode: {:#04x}", opcode),
+            _ => panic!("Invalid opcode: {:#04x}", opcode),
         }
     }
 }

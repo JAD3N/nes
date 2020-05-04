@@ -7,11 +7,11 @@ use super::{
 };
 
 pub trait BusRead {
-    fn read(&self, addr: u16) -> Option<u8>;
+    fn read(&self, addr: usize) -> Option<u8>;
 }
 
 pub trait BusWrite {
-    fn write(&mut self, addr: u16, value: u8) -> bool;
+    fn write(&mut self, addr: usize, value: u8) -> bool;
 }
 
 pub struct BusInterface {
@@ -27,7 +27,9 @@ impl BusInterface {
         }))
     }
 
-    pub fn read(&self, addr: u16) -> u8 {
+    pub fn read(&self, addr: usize) -> u8 {
+        let addr = addr & 0xffff;
+
         for reader in self.readers.iter() {
             if let Some(value) = reader.borrow().read(addr) {
                 return value;
@@ -37,14 +39,16 @@ impl BusInterface {
         0
     }
 
-    pub fn read_word(&self, addr: u16) -> u16 {
+    pub fn read_word(&self, addr: usize) -> u16 {
         let lo = self.read(addr) as u16;
         let hi = self.read(addr + 1) as u16;
 
         (hi << 8) | lo
     }
 
-    pub fn write(&mut self, addr: u16, value: u8) {
+    pub fn write(&mut self, addr: usize, value: u8) {
+        let addr = addr & 0xffff;
+
         for writer in self.writers.iter() {
             if writer.borrow_mut().write(addr, value) {
                 break;
@@ -82,11 +86,11 @@ impl Bus {
         Bus { interface, cpu, ppu, ram }
     }
 
-    pub fn read(&self, addr: u16) -> u8 {
+    pub fn read(&self, addr: usize) -> u8 {
         self.interface.borrow().read(addr)
     }
 
-    pub fn write(&mut self, addr: u16, value: u8) {
+    pub fn write(&mut self, addr: usize, value: u8) {
         self.interface.borrow_mut().write(addr, value)
     }
 }

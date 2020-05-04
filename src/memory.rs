@@ -13,7 +13,7 @@ impl Memory {
 }
 
 impl BusRead for Memory {
-    fn read(&self, addr: u16) -> Option<u8> {
+    fn read(&self, addr: usize) -> Option<u8> {
         if addr <= 0x1FFF {
             Some(self.data[(addr & 0x07FF) as usize])
         } else {
@@ -23,7 +23,7 @@ impl BusRead for Memory {
 }
 
 impl BusWrite for Memory {
-    fn write(&mut self, addr: u16, value: u8) -> bool {
+    fn write(&mut self, addr: usize, value: u8) -> bool {
         if addr <= 0x1FFF {
             self.data[(addr & 0x07FF) as usize] = value;
             true
