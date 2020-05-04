@@ -1,9 +1,9 @@
 extern crate wasm_bindgen;
 
+pub mod bus;
 pub mod cpu;
 pub mod ppu;
 pub mod memory;
-pub mod bus;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
@@ -35,7 +35,8 @@ impl Nes {
     }
 
     pub fn reset(&mut self) {
-
+        // reset cpu
+        self.bus.cpu.borrow_mut().reset();
     }
 
     pub fn tick_frame(&mut self) {

@@ -37,6 +37,13 @@ impl BusInterface {
         0
     }
 
+    pub fn read_word(&self, addr: u16) -> u16 {
+        let lo = self.read(addr) as u16;
+        let hi = self.read(addr + 1) as u16;
+
+        (hi << 8) | lo
+    }
+
     pub fn write(&mut self, addr: u16, value: u8) {
         for writer in self.writers.iter() {
             if writer.borrow_mut().write(addr, value) {

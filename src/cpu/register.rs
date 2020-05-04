@@ -88,6 +88,20 @@ impl Register<u16> {
     pub fn sub(&mut self, value: u16) {
        self.data = self.data.wrapping_sub(value);
     }
+
+    pub fn store_lo(&mut self, value: u8) {
+        let mask = (1 << 8) - 1;
+
+        self.data &= !mask;
+        self.data |= value as u16;
+    }
+
+    pub fn store_hi(&mut self, value: u8) {
+        let mask = (1 << 8) - 1;
+
+        self.data &= !(mask << 8);
+        self.data |= (value as u16) << 8;
+    }
 }
 
 impl Default for Register<u16> {
