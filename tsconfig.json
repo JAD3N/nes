@@ -13,7 +13,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"module": "esnext",
 		"moduleResolution": "node",
-		"resolveJsonModule": true
+		"resolveJsonModule": false
 	},
 	"include": [
 		"app/**/*"

@@ -1,0 +1,37 @@
+Game runs at 60Hz
+
+For Web:
+Run clock_frame() every 1/60th
+RAF render memory to texture at independent FPS
+
+For NES:
+
+// cycles per frame
+cpu::TOTAL_CYCLES = 29781;
+
+cpu::clock_frame -> {
+	// reset cycle count
+	remaining_cycles += TOTAL_CYCLES;
+
+	// count down and do clocks
+	while remaining_cycles > 0 {
+		// some nmi/irq stuff goes here (probably interrupts)
+
+		clock();
+	}
+
+	// elapsed is how many clocks so far
+	// TOTAL_CYCLES - remaining_cycles
+
+	// do last
+	apu::run_frame(elapsed());
+}
+
+
+cpu::clock -> {
+	ppu::step();
+	ppu::step();
+	ppu::step();
+
+	remaining_cycles -= 1;
+}

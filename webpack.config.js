@@ -11,7 +11,10 @@ module.exports = {
 	entry: './app/index.ts',
 	output: {
 		path: path.resolve(__dirname, 'dist'),
-		filename: 'app.js',
+		filename: '[name].js',
+	},
+	resolve: {
+		extensions: ['.ts', '.tsx', '.js', '.json']
 	},
 	module: {
 		rules: [
@@ -50,12 +53,5 @@ module.exports = {
 		port: 3000,
 		hot: true,
 		open: true,
-	},
-	node: {
-		dgram: 'empty',
-		fs: 'empty',
-		net: 'empty',
-		tls: 'empty',
-		child_process: 'empty',
 	},
 };
