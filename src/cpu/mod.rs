@@ -1,3 +1,5 @@
+pub mod register;
+
 use std::rc::Rc;
 use std::cell::RefCell;
 use super::{Tick, bus::BusInterface};
