@@ -1,8 +1,10 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use super::{cpu, ppu, ram};
-
-const RAM_SIZE: usize = 64 * 1024;
+use super::{
+    cpu::Cpu,
+    ppu::Ppu,
+    memory::Memory,
+};
 
 pub trait BusRead {
     fn read(&self, addr: u16) -> Option<u8>;
@@ -47,9 +49,9 @@ impl BusInterface {
 pub struct Bus {
     pub interface: Rc<RefCell<BusInterface>>,
 
-    pub cpu: Rc<RefCell<cpu::Cpu>>,
-    pub ppu: Rc<RefCell<ppu::Ppu>>,
-    pub ram: Rc<RefCell<ram::Ram>>,
+    pub cpu: Rc<RefCell<Cpu>>,
+    pub ppu: Rc<RefCell<Ppu>>,
+    pub ram: Rc<RefCell<Memory>>,
 }
 
 // read()
@@ -58,9 +60,9 @@ impl Bus {
     pub fn new() -> Bus {
         let interface = BusInterface::new();
 
-        let cpu = Rc::new(RefCell::new(cpu::Cpu::new(interface.clone())));
-        let ppu = Rc::new(RefCell::new(ppu::Ppu::new()));
-        let ram = Rc::new(RefCell::new(ram::Ram::new()));
+        let cpu = Rc::new(RefCell::new(Cpu::new(interface.clone())));
+        let ppu = Rc::new(RefCell::new(Ppu::new()));
+        let ram = Rc::new(RefCell::new(Memory::new()));
 
         {
             let mut bus = interface.borrow_mut();
