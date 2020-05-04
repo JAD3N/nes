@@ -73,7 +73,7 @@ impl Cpu {
         self.bus.borrow().read_word(pc as usize)
     }
 
-    fn get_address(&mut self, mode: Mode) -> usize {
+    fn get_operand_address(&mut self, mode: Mode) -> usize {
         match mode {
             Mode::Immediate => {
                 let addr = self.pc.load() as usize;
@@ -99,9 +99,11 @@ impl Cpu {
             },
             Mode::Relative => {
                 let mut addr = self.next_byte() as u16;
+
                 if addr & 0x80 != 0 {
                     addr |= 0xff00;
                 }
+
                 addr as usize
             },
             Mode::Absolute => self.next_word() as usize,
@@ -171,16 +173,58 @@ impl Cpu {
         }
     }
 
+    fn read_operand(&mut self, mode: Mode) -> u8 {
+        let addr = self.get_operand_address(mode);
+        let bus = self.bus.borrow();
+
+        bus.read(addr)
+    }
+
     fn execute(&mut self, opcode: u8) {
         match opcode {
-            // fake jmp
-            0x00 => {
-                let addr = self.next_word();
-                self.pc.store(addr);
-                self.skip_ticks += 4;
-            },
+            // Loads:
+
             _ => panic!("Invalid opcode: {:#04x}", opcode),
         }
+    }
+
+    fn lda(&mut self, mode: Mode) {
+        let operand = self.read_operand(mode);
+        // adjust flags (zero, negative)
+        self.a.store(operand);
+    }
+
+    fn ldx(&mut self, mode: Mode) {
+        let operand = self.read_operand(mode);
+        // adjust flags (zero, negative)
+        self.x.store(operand);
+    }
+
+    fn ldy(&mut self, mode: Mode) {
+        let operand = self.read_operand(mode);
+        // adjust flags (zero, negative)
+        self.y.store(operand);
+    }
+
+    fn sta(&mut self, mode: Mode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.a.load();
+
+        self.bus.borrow_mut().write(addr, value);
+    }
+
+    fn stx(&mut self, mode: Mode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.x.load();
+
+        self.bus.borrow_mut().write(addr, value);
+    }
+
+    fn sty(&mut self, mode: Mode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.y.load();
+
+        self.bus.borrow_mut().write(addr, value);
     }
 }
 
