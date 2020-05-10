@@ -17,7 +17,7 @@ pub struct Cpu {
 }
 
 #[derive(PartialEq)]
-pub enum Mode {
+enum Mode {
     Accumulator,
     Implied,
     Immediate,
@@ -31,6 +31,15 @@ pub enum Mode {
     Indirect,
     IndirectX,
     IndirectY,
+}
+
+
+#[derive(PartialEq)]
+enum Interrupt {
+    Nmi,
+    Reset,
+    Irq,
+    Break,
 }
 
 #[derive(PartialEq)]
@@ -97,6 +106,27 @@ impl Cpu {
         let hi = self.next() as u16;
 
         (hi << 8) | lo
+    }
+
+    pub fn push(&mut self, value: u8) {
+        let addr = 0x0100 + (self.sp as u16);
+        self.write(addr as usize, value);
+        self.sp = self.sp.wrapping_sub(1);
+    }
+
+    pub fn push_word(&mut self, value: u16) {
+        self.push((value >> 8) as u8);
+        self.push(value as u8);
+    }
+
+    pub fn pop(&mut self) -> u8 {
+        self.sp = self.sp.wrapping_add(1);
+        let addr = 0x0100 + (self.sp as u16);
+        self.read(addr as usize)
+    }
+
+    pub fn pop_word(&mut self) -> u16 {
+        (self.pop() as u16) | ((self.pop() as u16) << 8)
     }
 
     fn read_operand_address(&mut self, mode: Mode) -> (usize, bool) {
@@ -229,6 +259,43 @@ impl Cpu {
             0x0e => ("ASL", Mode::Absolute, 6),
             0x1e => ("ASL", Mode::AbsoluteX, 7),
 
+            // BCC
+            0x90 => ("BCC", Mode::Relative, 2),
+
+            // BCS
+            0xb0 => ("BCS", Mode::Relative, 2),
+
+            // BEQ
+            0xf0 => ("BEQ", Mode::Relative, 2),
+
+            // BIT
+            0x24 => ("BIT", Mode::ZeroPage, 3),
+            0x2c => ("BIT", Mode::Absolute, 4),
+
+            // BMI
+            0x30 => ("BMI", Mode::Relative, 2),
+
+            // BNE
+            0xd0 => ("BNE", Mode::Relative, 2),
+
+            // BPL
+            0x10 => ("BPL", Mode::Relative, 2),
+
+            // BRK
+            0x00 => ("BRK", Mode::Implied, 7),
+
+            // BVC
+            0x50 => ("BVC", Mode::Relative, 2),
+
+            // BVS
+            0x70 => ("BVS", Mode::Relative, 2),
+
+            // Clear Flags
+            0x18 => ("CLC", Mode::Implied, 2),
+            0xd8 => ("CLD", Mode::Implied, 2),
+            0x58 => ("CLI", Mode::Implied, 2),
+            0xb8 => ("CLV", Mode::Implied, 2),
+
             _ => panic!("Unknown opcode: {:#04x}", opcode),
         }
     }
@@ -240,6 +307,20 @@ impl Cpu {
             "ADC" => self.adc(mode),
             "AND" => self.and(mode),
             "ASL" => self.asl(mode),
+            "BCC" => self.bcc(),
+            "BCS" => self.bcs(),
+            "BEQ" => self.beq(),
+            "BIT" => self.bit(mode),
+            "BMI" => self.bmi(),
+            "BNE" => self.bne(),
+            "BPL" => self.bpl(),
+            "BRK" => self.brk(),
+            "BVC" => self.bvc(),
+            "BVS" => self.bvs(),
+            "CLC" => self.clc(),
+            "CLD" => self.cld(),
+            "CLI" => self.cli(),
+            "CLV" => self.clv(),
             _ => false,
         } {
             // add additional tick
@@ -330,6 +411,107 @@ impl Cpu {
         self.set_flag(Flag::Zero, (value & 0x00ff) == 0);
         self.set_flag(Flag::Negative, (value & 0b10000000) != 0);
 
+        false
+    }
+
+    fn branch(&mut self, cond: bool) {
+        let addr = self.read_operand_address(Mode::Relative).0;
+
+        if cond {
+            self.skip_ticks += 1;
+
+            if addr & 0xff00 != (self.pc as usize) & 0xff00 {
+                self.skip_ticks += 1;
+            }
+
+            self.pc = addr as u16;
+        }
+    }
+
+    fn bcc(&mut self) -> bool {
+        self.branch(!self.get_flag(Flag::Carry));
+        false
+    }
+
+    fn bcs(&mut self) -> bool {
+        self.branch(self.get_flag(Flag::Carry));
+        false
+    }
+
+    fn beq(&mut self) -> bool {
+        self.branch(self.get_flag(Flag::Zero));
+        false
+    }
+
+    fn bit(&mut self, mode: Mode) -> bool {
+        let (addr, skip_tick) = self.read_operand_address(mode);
+        let operand = self.read(addr);
+        let value = self.a & operand;
+
+        self.set_flag(Flag::Zero, value == 0);
+        self.set_flag(Flag::Overflow, (operand & 0b01000000) != 0);
+        self.set_flag(Flag::Negative, (operand & 0b10000000) != 0);
+
+        false
+    }
+
+    fn bmi(&mut self) -> bool {
+        self.branch(self.get_flag(Flag::Negative));
+        false
+    }
+
+    fn bne(&mut self) -> bool {
+        self.branch(!self.get_flag(Flag::Zero));
+        false
+    }
+
+    fn bpl(&mut self) -> bool {
+        self.branch(!self.get_flag(Flag::Negative));
+        false
+    }
+
+    fn brk(&mut self) -> bool {
+        self.next();
+
+        self.set_flag(Flag::InterruptDisable, true);
+        self.push_word(self.pc);
+
+        self.set_flag(Flag::Break, true);
+        self.push(self.s);
+        self.set_flag(Flag::Break, false);
+
+        self.pc = self.read_word(0xFFFE);
+
+        false
+    }
+
+    fn bvc(&mut self) -> bool {
+        self.branch(!self.get_flag(Flag::Overflow));
+        false
+    }
+
+    fn bvs(&mut self) -> bool {
+        self.branch(self.get_flag(Flag::Overflow));
+        false
+    }
+
+    fn clc(&mut self) -> bool {
+        self.set_flag(Flag::Carry, false);
+        false
+    }
+
+    fn cld(&mut self) -> bool {
+        self.set_flag(Flag::Decimal, false);
+        false
+    }
+
+    fn cli(&mut self) -> bool {
+        self.set_flag(Flag::InterruptDisable, false);
+        false
+    }
+
+    fn clv(&mut self) -> bool {
+        self.set_flag(Flag::Overflow, false);
         false
     }
 }
