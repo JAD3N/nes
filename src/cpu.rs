@@ -55,6 +55,17 @@ fn get_instruction(opcode: usize) -> Instruction {
         0x79 => ("ADC", Mode::AbsoluteY, 4),
         0x61 => ("ADC", Mode::IndirectX, 6),
         0x71 => ("ADC", Mode::IndirectY, 5),
+
+        // AND
+        0x29 => ("AND", Mode::Immediate, 2),
+        0x25 => ("AND", Mode::ZeroPage, 3),
+        0x35 => ("AND", Mode::ZeroPageX, 4),
+        0x2d => ("AND", Mode::Absolute, 4),
+        0x3d => ("AND", Mode::AbsoluteX, 4),
+        0x39 => ("AND", Mode::AbsoluteY, 4),
+        0x21 => ("AND", Mode::IndirectX, 6),
+        0x31 => ("AND", Mode::IndirectY, 5),
+
         _ => panic!("Unknown opcode: {:#04x}", opcode),
     }
 }
@@ -223,6 +234,7 @@ impl Cpu {
         if match instruction.0 {
             "NOP" => self.nop(),
             "ADC" => self.adc(),
+            "AND" => self.and(),
             _ => false,
         } {
             skip_tick += 1;
@@ -276,10 +288,21 @@ impl Cpu {
             & 0x0080 != 0
         );
 
-        self.set_flag(Flag::Negative, value & 0b10000000 != 0);
+        self.set_flag(Flag::Negative, (value & 0b10000000) != 0);
 
         // set a to value byte
         self.a = (value & 0x00ff) as u8;
+
+        true
+    }
+
+    fn and(&mut self) -> bool {
+        let operand = self.read(self.addr);
+
+        self.a &= operand;
+
+        self.set_flag(Flag::Zero, (self.a & 0x00ff) == 0);
+        self.set_flag(Flag::Negative, (self.a & 0b10000000) != 0);
 
         true
     }
