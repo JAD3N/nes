@@ -47,39 +47,6 @@ enum Flag {
 
 type Instruction = (&'static str, Mode, u64);
 
-fn get_instruction(opcode: usize) -> Instruction {
-    match opcode {
-        // ADC
-        0x69 => ("ADC", Mode::Immediate, 2),
-        0x65 => ("ADC", Mode::ZeroPage, 3),
-        0x75 => ("ADC", Mode::ZeroPageX, 4),
-        0x6d => ("ADC", Mode::Absolute, 4),
-        0x7d => ("ADC", Mode::AbsoluteX, 4),
-        0x79 => ("ADC", Mode::AbsoluteY, 4),
-        0x61 => ("ADC", Mode::IndirectX, 6),
-        0x71 => ("ADC", Mode::IndirectY, 5),
-
-        // AND
-        0x29 => ("AND", Mode::Immediate, 2),
-        0x25 => ("AND", Mode::ZeroPage, 3),
-        0x35 => ("AND", Mode::ZeroPageX, 4),
-        0x2d => ("AND", Mode::Absolute, 4),
-        0x3d => ("AND", Mode::AbsoluteX, 4),
-        0x39 => ("AND", Mode::AbsoluteY, 4),
-        0x21 => ("AND", Mode::IndirectX, 6),
-        0x31 => ("AND", Mode::IndirectY, 5),
-
-        // ASL
-        0x01 => ("ASL", Mode::Accumulator, 2),
-        0x06 => ("ASL", Mode::ZeroPage, 5),
-        0x16 => ("ASL", Mode::ZeroPageX, 6),
-        0x0e => ("ASL", Mode::Absolute, 6),
-        0x1e => ("ASL", Mode::AbsoluteX, 7),
-
-        _ => panic!("Unknown opcode: {:#04x}", opcode),
-    }
-}
-
 impl Cpu {
     pub fn new(bus: Rc<RefCell<BusInterface>>) -> Cpu {
         Cpu {
@@ -233,8 +200,41 @@ impl Cpu {
         }
     }
 
+    fn get_instruction(opcode: usize) -> Instruction {
+        match opcode {
+            // ADC
+            0x69 => ("ADC", Mode::Immediate, 2),
+            0x65 => ("ADC", Mode::ZeroPage, 3),
+            0x75 => ("ADC", Mode::ZeroPageX, 4),
+            0x6d => ("ADC", Mode::Absolute, 4),
+            0x7d => ("ADC", Mode::AbsoluteX, 4),
+            0x79 => ("ADC", Mode::AbsoluteY, 4),
+            0x61 => ("ADC", Mode::IndirectX, 6),
+            0x71 => ("ADC", Mode::IndirectY, 5),
+
+            // AND
+            0x29 => ("AND", Mode::Immediate, 2),
+            0x25 => ("AND", Mode::ZeroPage, 3),
+            0x35 => ("AND", Mode::ZeroPageX, 4),
+            0x2d => ("AND", Mode::Absolute, 4),
+            0x3d => ("AND", Mode::AbsoluteX, 4),
+            0x39 => ("AND", Mode::AbsoluteY, 4),
+            0x21 => ("AND", Mode::IndirectX, 6),
+            0x31 => ("AND", Mode::IndirectY, 5),
+
+            // ASL
+            0x01 => ("ASL", Mode::Accumulator, 2),
+            0x06 => ("ASL", Mode::ZeroPage, 5),
+            0x16 => ("ASL", Mode::ZeroPageX, 6),
+            0x0e => ("ASL", Mode::Absolute, 6),
+            0x1e => ("ASL", Mode::AbsoluteX, 7),
+
+            _ => panic!("Unknown opcode: {:#04x}", opcode),
+        }
+    }
+
     fn execute(&mut self, opcode: usize) {
-        let (name, mode, skip_ticks) = get_instruction(opcode);
+        let (name, mode, skip_ticks) = Self::get_instruction(opcode);
 
         if match name {
             "ADC" => self.adc(mode),
