@@ -16,7 +16,9 @@ pub struct Cpu {
     pub debug: String,
 }
 
+#[derive(PartialEq)]
 pub enum Mode {
+    Accumulator,
     Implied,
     Immediate,
     ZeroPage,
@@ -31,6 +33,7 @@ pub enum Mode {
     IndirectY,
 }
 
+#[derive(PartialEq)]
 enum Flag {
     Carry = 0b00000001,
     Zero = 0b00000010,
@@ -66,6 +69,13 @@ fn get_instruction(opcode: usize) -> Instruction {
         0x21 => ("AND", Mode::IndirectX, 6),
         0x31 => ("AND", Mode::IndirectY, 5),
 
+        // ASL
+        0x01 => ("ASL", Mode::Accumulator, 2),
+        0x06 => ("ASL", Mode::ZeroPage, 5),
+        0x16 => ("ASL", Mode::ZeroPageX, 6),
+        0x0e => ("ASL", Mode::Absolute, 6),
+        0x1e => ("ASL", Mode::AbsoluteX, 7),
+
         _ => panic!("Unknown opcode: {:#04x}", opcode),
     }
 }
@@ -94,6 +104,10 @@ impl Cpu {
         self.skip_ticks = 5;
     }
 
+    pub fn write(&mut self, addr: usize, value: u8) {
+        self.bus.borrow_mut().write(addr, value);
+    }
+
     pub fn read(&self, addr: usize) -> u8 {
         self.bus.borrow().read(addr)
     }
@@ -101,6 +115,7 @@ impl Cpu {
     pub fn read_word(&self, addr: usize) -> u16 {
         let lo = self.read(addr) as u16;
         let hi = self.read(addr + 1) as u16;
+
         (hi << 8) | lo
     }
 
@@ -113,24 +128,26 @@ impl Cpu {
     pub fn next_word(&mut self) -> u16 {
         let lo = self.next() as u16;
         let hi = self.next() as u16;
+
         (hi << 8) | lo
     }
 
-    fn read_operand_address(&mut self, mode: Mode) -> Option<(usize, bool)> {
+    fn read_operand_address(&mut self, mode: Mode) -> (usize, bool) {
         match mode {
             Mode::Immediate => {
                 let addr = self.pc as usize;
                 self.pc = self.pc.overflowing_add(1).0;
-                Some((addr, false))
+
+                (addr, false)
             },
-            Mode::ZeroPage => Some((self.next() as usize, false)),
+            Mode::ZeroPage => (self.next() as usize, false),
             Mode::ZeroPageX => {
                 let mut addr = self.next() as u16;
 
                 addr += self.x as u16;
                 addr &= 0x00ff;
 
-                Some((addr as usize, false))
+                (addr as usize, false)
             },
             Mode::ZeroPageY => {
                 let mut addr = self.next() as u16;
@@ -138,7 +155,7 @@ impl Cpu {
                 addr += self.y as u16;
                 addr &= 0x00ff;
 
-                Some((addr as usize, false))
+                (addr as usize, false)
             },
             Mode::Relative => {
                 let mut addr = self.next() as u16;
@@ -147,9 +164,9 @@ impl Cpu {
                     addr |= 0xff00;
                 }
 
-                Some((addr as usize, false))
+                (addr as usize, false)
             },
-            Mode::Absolute => Some((self.next_word() as usize, false)),
+            Mode::Absolute => (self.next_word() as usize, false),
             Mode::AbsoluteX => {
                 let lo = self.next() as u16;
                 let hi = self.next() as u16;
@@ -159,7 +176,7 @@ impl Cpu {
                 addr += self.x as u16;
 
                 // checks whether page has changed
-                Some((addr as usize, addr & 0xff00 != hi << 8))
+                (addr as usize, addr & 0xff00 != hi << 8)
             },
             Mode::AbsoluteY => {
                 let lo = self.next() as u16;
@@ -170,7 +187,7 @@ impl Cpu {
                 addr += self.y as u16;
 
                 // checks whether page has changed
-                Some((addr as usize, addr & 0xff00 != hi << 8))
+                (addr as usize, addr & 0xff00 != hi << 8)
             },
             Mode::Indirect => {
                 let mut lo = self.next() as u16;
@@ -189,7 +206,7 @@ impl Cpu {
 
                 addr = (hi << 8) | lo;
 
-                Some((addr as usize, false))
+                (addr as usize, false)
             },
             Mode::IndirectX => {
                 let mut addr = self.next() as u16;
@@ -199,7 +216,7 @@ impl Cpu {
 
                 addr = (hi << 8) | lo;
 
-                Some((addr as usize, false))
+                (addr as usize, false)
             },
             Mode::IndirectY => {
                 let mut addr = self.next() as u16;
@@ -210,46 +227,30 @@ impl Cpu {
                 // create addr from bytes
                 addr = (hi << 8) | lo;
 
-                Some((addr as usize, addr & 0xff00 != hi << 8))
+                (addr as usize, addr & 0xff00 != hi << 8)
             }
-            _ => None,
+            _ => panic!("Invalid addressing mode!"),
         }
     }
 
     fn execute(&mut self, opcode: usize) {
-        let instruction = get_instruction(opcode);
-        let mut skip_tick = 0u8;
+        let (name, mode, skip_ticks) = get_instruction(opcode);
 
-        // try read operand
-        if let Some((addr, mode_skip_tick)) = self.read_operand_address(instruction.1) {
-            // set operand address
-            self.addr = addr;
-
-            // check if addressing mode requires additional tick
-            if mode_skip_tick {
-                skip_tick += 1;
-            }
-        }
-
-        if match instruction.0 {
-            "NOP" => self.nop(),
-            "ADC" => self.adc(),
-            "AND" => self.and(),
+        if match name {
+            "ADC" => self.adc(mode),
+            "AND" => self.and(mode),
+            "ASL" => self.asl(mode),
             _ => false,
         } {
-            skip_tick += 1;
-        }
-
-        // add instruction skip ticks
-        self.skip_ticks = instruction.2;
-
-        // add additional skip tick if required
-        if skip_tick == 2 {
+            // add additional tick
             self.skip_ticks += 1;
         }
 
+        // add instruction skip ticks
+        self.skip_ticks = skip_ticks;
+
         self.debug.clear();
-        self.debug.push_str(instruction.0);
+        self.debug.push_str(name);
     }
 
     fn set_flag(&mut self, flag: Flag, value: bool) {
@@ -266,12 +267,10 @@ impl Cpu {
         self.p & (flag as u8) > 0
     }
 
-    fn nop(&mut self) -> bool {
-        false
-    }
+    fn adc(&mut self, mode: Mode) -> bool {
+        let (addr, skip_tick) = self.read_operand_address(mode);
+        let operand = self.read(addr);
 
-    fn adc(&mut self) -> bool {
-        let operand = self.read(self.addr);
         let value = (self.a as u16)
             + (operand as u16)
             + (self.get_flag(Flag::Carry) as u16);
@@ -293,18 +292,45 @@ impl Cpu {
         // set a to value byte
         self.a = (value & 0x00ff) as u8;
 
-        true
+        skip_tick
     }
 
-    fn and(&mut self) -> bool {
-        let operand = self.read(self.addr);
+    fn and(&mut self, mode: Mode) -> bool {
+        let (addr, skip_tick) = self.read_operand_address(mode);
+        let operand = self.read(addr);
 
         self.a &= operand;
 
         self.set_flag(Flag::Zero, (self.a & 0x00ff) == 0);
         self.set_flag(Flag::Negative, (self.a & 0b10000000) != 0);
 
-        true
+        skip_tick
+    }
+
+    fn asl(&mut self, mode: Mode) -> bool {
+        let value = if mode == Mode::Accumulator {
+            let value = (self.a as u16) << 1;
+
+            // truncate shifted value
+            self.a = (value & 0x00ff) as u8;
+
+            // return value for flags
+            value
+        } else {
+            let addr = self.read_operand_address(mode).0;
+            let operand = self.read(addr);
+            let value = (operand as u16) << 1;
+
+            self.write(addr, (value & 0x00ff) as u8);
+
+            value
+        };
+
+        self.set_flag(Flag::Carry, (value & 0xff00) > 0);
+        self.set_flag(Flag::Zero, (value & 0x00ff) == 0);
+        self.set_flag(Flag::Negative, (value & 0b10000000) != 0);
+
+        false
     }
 }
 
