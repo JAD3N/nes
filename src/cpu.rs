@@ -296,6 +296,26 @@ impl Cpu {
             0x58 => ("CLI", Mode::Implied, 2),
             0xb8 => ("CLV", Mode::Implied, 2),
 
+            // CMP
+            0xc9 => ("CMP", Mode::Immediate, 2),
+            0xc5 => ("CMP", Mode::ZeroPage, 3),
+            0xd5 => ("CMP", Mode::ZeroPageX, 4),
+            0xcd => ("CMP", Mode::Absolute, 4),
+            0xdd => ("CMP", Mode::AbsoluteX, 4),
+            0xd9 => ("CMP", Mode::AbsoluteY, 4),
+            0xc1 => ("CMP", Mode::IndirectX, 6),
+            0xd1 => ("CMP", Mode::IndirectY, 5),
+
+            // CPX
+            0xe0 => ("CPX", Mode::Immediate, 2),
+            0xe4 => ("CPX", Mode::ZeroPage, 3),
+            0xec => ("CPX", Mode::Absolute, 4),
+
+            // CPY
+            0xc0 => ("CPY", Mode::Immediate, 2),
+            0xc4 => ("CPY", Mode::ZeroPage, 3),
+            0xcc => ("CPY", Mode::Absolute, 4),
+
             _ => panic!("Unknown opcode: {:#04x}", opcode),
         }
     }
@@ -321,6 +341,9 @@ impl Cpu {
             "CLD" => self.cld(),
             "CLI" => self.cli(),
             "CLV" => self.clv(),
+            "CMP" => self.cmp(mode),
+            "CPX" => self.cpx(mode),
+            "CPY" => self.cpy(mode),
             _ => false,
         } {
             // add additional tick
@@ -444,7 +467,7 @@ impl Cpu {
     }
 
     fn bit(&mut self, mode: Mode) -> bool {
-        let (addr, skip_tick) = self.read_operand_address(mode);
+        let addr = self.read_operand_address(mode).0;
         let operand = self.read(addr);
         let value = self.a & operand;
 
@@ -513,6 +536,42 @@ impl Cpu {
     fn clv(&mut self) -> bool {
         self.set_flag(Flag::Overflow, false);
         false
+    }
+
+    fn cmp(&mut self, mode: Mode) -> bool {
+        let (addr, skip_tick) = self.read_operand_address(mode);
+        let operand = self.read(addr);
+        let value = (self.a as u16) - (operand as u16);
+
+        self.set_flag(Flag::Carry, self.a >= operand);
+        self.set_flag(Flag::Zero, (value & 0x00ff) == 0);
+        self.set_flag(Flag::Negative, (value & 0x0080) != 0);
+
+        skip_tick
+    }
+
+    fn cpx(&mut self, mode: Mode) -> bool {
+        let (addr, skip_tick) = self.read_operand_address(mode);
+        let operand = self.read(addr);
+        let value = (self.x as u16) - (operand as u16);
+
+        self.set_flag(Flag::Carry, self.x >= operand);
+        self.set_flag(Flag::Zero, (value & 0x00ff) == 0);
+        self.set_flag(Flag::Negative, (value & 0x0080) != 0);
+
+        skip_tick
+    }
+
+    fn cpy(&mut self, mode: Mode) -> bool {
+        let (addr, skip_tick) = self.read_operand_address(mode);
+        let operand = self.read(addr);
+        let value = (self.x as u16) - (operand as u16);
+
+        self.set_flag(Flag::Carry, self.x >= operand);
+        self.set_flag(Flag::Zero, (value & 0x00ff) == 0);
+        self.set_flag(Flag::Negative, (value & 0x0080) != 0);
+
+        skip_tick
     }
 }
 
