@@ -5,20 +5,20 @@ const NES_FPS = 60;
 
 class App {
 	nes: Nes;
-	clocker: number;
+	ticker: number;
 	nextFrame: number;
 
 	constructor(nes: Nes) {
 		this.nes = nes;
-		this.clocker = -1;
+		this.ticker = -1;
 		this.nextFrame = -1;
 
 		this.render = this.render.bind(this);
-		this.clockFrame = this.clockFrame.bind(this);
+		this.tickFrame = this.tickFrame.bind(this);
 	}
 
 	start(): void {
-		this.clocker = window.setInterval(this.clockFrame, 1000 / NES_FPS);
+		this.ticker = window.setInterval(this.tickFrame, 1000 / NES_FPS);
 		this.nextFrame = window.requestAnimationFrame(this.render);
 	}
 
@@ -30,8 +30,13 @@ class App {
 		this.nextFrame = window.requestAnimationFrame(this.render);
 	}
 
-	clockFrame(): void {
-		this.nes.tick_frame();
+	tickFrame(): void {
+		try {
+			this.nes.tick_frame();
+		} catch {
+			window.clearInterval(this.ticker);
+			window.cancelAnimationFrame(this.nextFrame);
+		}
 	}
 }
 

@@ -39,13 +39,6 @@ impl BusInterface {
         0
     }
 
-    pub fn read_word(&self, addr: usize) -> u16 {
-        let lo = self.read(addr) as u16;
-        let hi = self.read(addr + 1) as u16;
-
-        (hi << 8) | lo
-    }
-
     pub fn write(&mut self, addr: usize, value: u8) {
         let addr = addr & 0xffff;
 

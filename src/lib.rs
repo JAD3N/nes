@@ -39,6 +39,12 @@ impl Nes {
         self.bus.cpu.borrow_mut().reset();
     }
 
+    pub fn tick_cpu(&mut self) -> String {
+        let mut cpu = self.bus.cpu.borrow_mut();
+        cpu.tick();
+        cpu.debug.clone()
+    }
+
     pub fn tick_frame(&mut self) {
         let cpu = &mut self.bus.cpu;
         let ppu = &mut self.bus.ppu;
