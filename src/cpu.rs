@@ -74,58 +74,56 @@ impl Cpu {
     }
 
     pub fn reset(&mut self) {
-        let bus = self.bus.borrow();
-
-        //self.pc.store(bus.read_word(0xFFFC));
-        self.skip_ticks = 5;
+        self.pc = self.read_word(0xFFFC);
+        self.skip_ticks = 8;
     }
 
-    pub fn write(&mut self, addr: usize, value: u8) {
+    fn write(&mut self, addr: usize, value: u8) {
         self.bus.borrow_mut().write(addr, value);
     }
 
-    pub fn read(&self, addr: usize) -> u8 {
+    fn read(&self, addr: usize) -> u8 {
         self.bus.borrow().read(addr)
     }
 
-    pub fn read_word(&self, addr: usize) -> u16 {
+    fn read_word(&self, addr: usize) -> u16 {
         let lo = self.read(addr) as u16;
         let hi = self.read(addr + 1) as u16;
 
         (hi << 8) | lo
     }
 
-    pub fn next(&mut self) -> u8 {
+    fn next(&mut self) -> u8 {
         let byte = self.read(self.pc as usize);
         self.pc = self.pc.overflowing_add(1).0;
         byte
     }
 
-    pub fn next_word(&mut self) -> u16 {
+    fn next_word(&mut self) -> u16 {
         let lo = self.next() as u16;
         let hi = self.next() as u16;
 
         (hi << 8) | lo
     }
 
-    pub fn push(&mut self, value: u8) {
+    fn push(&mut self, value: u8) {
         let addr = 0x0100 + (self.sp as u16);
         self.write(addr as usize, value);
         self.sp = self.sp.wrapping_sub(1);
     }
 
-    pub fn push_word(&mut self, value: u16) {
+    fn push_word(&mut self, value: u16) {
         self.push((value >> 8) as u8);
         self.push(value as u8);
     }
 
-    pub fn pop(&mut self) -> u8 {
+    fn pop(&mut self) -> u8 {
         self.sp = self.sp.wrapping_add(1);
         let addr = 0x0100 + (self.sp as u16);
         self.read(addr as usize)
     }
 
-    pub fn pop_word(&mut self) -> u16 {
+    fn pop_word(&mut self) -> u16 {
         (self.pop() as u16) | ((self.pop() as u16) << 8)
     }
 
